@@ -35,6 +35,8 @@ button:disabled { opacity: .5; cursor: default; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 input[type=text], input[type=password], input[type=number], textarea, select { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; width: 100%; }
 textarea { min-height: 120px; resize: vertical; font-family: var(--mono); font-size: 12.5px; }
+textarea.plain { font-family: var(--font); font-size: 13.5px; min-height: 64px; }
+.fields { display: flex; flex-direction: column; gap: 10px; }
 label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; letter-spacing: .02em; text-transform: uppercase; }
 h1, h2, h3 { margin: 0; text-wrap: balance; font-weight: 600; }
 h2 { font-size: 20px; } h3 { font-size: 14px; }
@@ -179,8 +181,18 @@ tr.unseen td { font-weight: 500; } tr.unseen td:first-child { box-shadow: inset 
     </div>
     <div class="panel">
       <h3>2. Aspirations and constraints</h3>
-      <p class="muted">In your own words. What you want, what you'd avoid, where, how senior, long-term aim.</p>
-      <textarea id="aspirations" style="min-height:220px"></textarea>
+      <p class="muted">In your own words. Claude reads these alongside the CV.</p>
+      <div class="fields">
+        <div><label for="aCurrent">Current role</label><input id="aCurrent" type="text" placeholder="Actuarial Analyst at PIC, 13 months in"></div>
+        <div><label for="aMoving">Moving towards</label><textarea id="aMoving" class="plain" placeholder="What kind of work, and why"></textarea></div>
+        <div><label for="aEmployers">Target employers</label><input id="aEmployers" type="text" placeholder="banks, hedge funds, asset managers"></div>
+        <div><label for="aLocations">Locations</label><input id="aLocations" type="text" placeholder="London, Zurich, Geneva"></div>
+        <div><label for="aSeniority">Seniority I can realistically get</label><input id="aSeniority" type="text" placeholder="analyst / associate / junior, 1-2 years, MSci not PhD"></div>
+        <div><label for="aAvoid">Avoid</label><textarea id="aAvoid" class="plain" placeholder="One per line: pure actuarial, pensions, insurance reporting"></textarea></div>
+        <div><label for="aLongTerm">Long-term aim</label><textarea id="aLongTerm" class="plain"></textarea></div>
+        <div><label for="aSalary">Salary floor (soft, GBP)</label><input id="aSalary" type="number" placeholder="45000"></div>
+        <div><label for="aNotes">Anything else</label><textarea id="aNotes" class="plain" placeholder="Strongest evidence on the CV, open to grad schemes, etc."></textarea></div>
+      </div>
     </div>
   </div>
   <div class="row"><button class="primary" id="buildBtn">Build search profile with Claude</button><span class="muted" id="buildMsg"></span></div>
@@ -329,10 +341,25 @@ $("#probeBtn").onclick = async () => {
 };
 
 // ---- profile ----
+const ASP = { current_role: "#aCurrent", moving_towards: "#aMoving", target_employers: "#aEmployers", locations: "#aLocations",
+  seniority: "#aSeniority", avoid: "#aAvoid", long_term: "#aLongTerm", salary_floor_gbp: "#aSalary", notes: "#aNotes" };
+function setAspirations(a) {
+  if (typeof a === "string") { try { a = JSON.parse(a); } catch { a = { notes: a }; } }
+  for (const [k, sel] of Object.entries(ASP)) {
+    let v = a[k]; if (Array.isArray(v)) v = k === "avoid" ? v.join("\n") : v.join(", ");
+    $(sel).value = v == null ? "" : String(v).trim();
+  }
+}
+function getAspirations() {
+  const a = {};
+  for (const [k, sel] of Object.entries(ASP)) { const v = $(sel).value.trim(); if (!v) continue;
+    a[k] = k === "avoid" ? lines(v) : k === "locations" ? v.split(",").map(x => x.trim()).filter(Boolean) : k === "salary_floor_gbp" ? +v : v; }
+  return a;
+}
 let profile = null;
 async function loadProfile() {
   const r = await api("/api/profile");
-  $("#aspirations").value = r.aspirations || "";
+  setAspirations(r.aspirations || {});
   $("#cvText").value = r.cv_text || "";
   if (r.profile) { profile = r.profile; renderProfile(); $("#profileState").textContent = "Profile built. Edit and save, or rebuild from a new CV."; }
   else $("#profileState").textContent = "No profile yet.";
@@ -353,7 +380,7 @@ function renderProfile() {
 $("#buildBtn").onclick = async () => {
   const fd = new FormData();
   const f = $("#cvFile").files[0]; if (f) fd.append("cv", f);
-  fd.append("cv_text", $("#cvText").value); fd.append("aspirations", $("#aspirations").value);
+  fd.append("cv_text", $("#cvText").value); fd.append("aspirations", JSON.stringify(getAspirations()));
   $("#buildBtn").disabled = true; $("#buildMsg").textContent = "Asking Claude (20 to 40 seconds)...";
   try { const r = await api("/api/profile/build", { method: "POST", body: fd }); profile = r.profile; renderProfile(); $("#buildMsg").textContent = "Built. " + r.usage; loadSettings(); if (!$("#cvText").value) loadProfile(); }
   catch (e) { $("#buildMsg").textContent = e.message; }

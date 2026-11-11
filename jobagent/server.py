@@ -48,6 +48,17 @@ class RunState:
                     "stats": self.stats, "elapsed": round(time.time() - self.started, 1) if self.started else 0}
 
 
+def _normalise_aspirations(a: dict) -> dict:
+    """Map the profile.yaml keys onto the form fields."""
+    out = dict(a)
+    if "constraints" in out and "avoid" not in out:
+        c = out.pop("constraints")
+        out["avoid"] = [x for x in c if isinstance(x, str) and x.lower().startswith("no ")]
+        out["seniority"] = next((x for x in c if "senior" in x.lower()), "")
+        out["notes"] = (out.get("notes", "") + " " + " ".join(x for x in c if x not in out["avoid"] and x != out["seniority"])).strip()
+    return out
+
+
 def create_app(config_path: Path = Path("profile.yaml"), companies_path: Path = Path("companies.yaml")) -> FastAPI:
     app = FastAPI(title="jobagent")
     settings = Settings.from_env()
@@ -109,20 +120,39 @@ def create_app(config_path: Path = Path("profile.yaml"), companies_path: Path = 
     # ---- profile ----
     @app.get("/api/profile")
     def get_profile():
-        out = {"profile": None, "aspirations": "", "cv_text": ""}
+        out = {"profile": None, "aspirations": {}, "cv_text": ""}
         if paths["profile"].exists():
             out["profile"] = json.loads(paths["profile"].read_text(encoding="utf-8"))
             out["profile"].pop("cv_text", None)
-        if paths["aspirations"].exists():
-            out["aspirations"] = paths["aspirations"].read_text(encoding="utf-8")
+        raw = paths["aspirations"].read_text(encoding="utf-8") if paths["aspirations"].exists() else ""
+        if raw.strip():
+            try:
+                out["aspirations"] = json.loads(raw)
+            except json.JSONDecodeError:
+                try:
+                    out["aspirations"] = yaml.safe_load(raw) or {}
+                except yaml.YAMLError:
+                    out["aspirations"] = {"notes": raw}
         elif config_path.exists():
-            out["aspirations"] = yaml.safe_dump(cfg().get("aspirations", {}), sort_keys=False, allow_unicode=True, width=100)
+            out["aspirations"] = _normalise_aspirations(cfg().get("aspirations", {}))
+        if not isinstance(out["aspirations"], dict):
+            out["aspirations"] = {"notes": str(out["aspirations"])}
         if paths["cv"].exists():
             out["cv_text"] = paths["cv"].read_text(encoding="utf-8")
         return out
 
     @app.post("/api/profile/build")
     async def build(cv: UploadFile | None = File(None), cv_text: str = Form(""), aspirations: str = Form("")):
+        try:
+            asp = json.loads(aspirations) if aspirations.strip() else {}
+        except json.JSONDecodeError:
+            try:
+                asp = yaml.safe_load(aspirations) or {}
+            except yaml.YAMLError:
+                asp = {"notes": aspirations}
+        if not isinstance(asp, dict):
+            asp = {"notes": str(asp)}
+        paths["aspirations"].write_text(json.dumps(asp, indent=2), encoding="utf-8")
         if not settings.anthropic_api_key:
             raise HTTPException(400, "Add your Anthropic API key in Settings first.")
         text = cv_text
@@ -134,13 +164,6 @@ def create_app(config_path: Path = Path("profile.yaml"), companies_path: Path = 
         if not text.strip():
             raise HTTPException(400, "Upload a CV or paste its text.")
         paths["cv"].write_text(text, encoding="utf-8")
-        paths["aspirations"].write_text(aspirations, encoding="utf-8")
-        try:
-            asp = yaml.safe_load(aspirations) if aspirations.strip() else {}
-            if not isinstance(asp, dict):
-                asp = {"aspirations": aspirations}
-        except yaml.YAMLError:
-            asp = {"aspirations": aspirations}
         llm = LLM(settings.anthropic_api_key, settings.profile_model)
         try:
             prof = build_profile(llm, text, asp)
