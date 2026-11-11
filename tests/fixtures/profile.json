@@ -1,0 +1,20 @@
+{
+  "summary": "Physics MSci with ~1 year as an actuarial analyst at a bulk annuity insurer, doing PV01/IE01 and SCR stress work, with a self-built Monte Carlo CVA engine and PCA yield-curve model.",
+  "years_experience": 1.1,
+  "current_title": "Actuarial Analyst",
+  "current_sector": "insurance",
+  "hard_skills": ["Python", "NumPy", "QuantLib", "MATLAB", "SQL", "VBA", "Monte Carlo", "PCA", "Hull-White", "Longstaff-Schwartz"],
+  "domain_knowledge": ["CVA / counterparty credit risk", "interest rate sensitivities", "Solvency II", "yield curve modelling"],
+  "strengths": ["CVA engine with AMC extension", "rates sensitivity work on a £55bn book"],
+  "gaps": ["No bank or fund experience", "C++ basic only", "MSci not PhD"],
+  "target_roles": ["Quantitative Analyst", "XVA Quant", "Risk Quant", "Quant Developer", "Strats Analyst"],
+  "stretch_roles": ["Desk Quant"],
+  "target_sectors": ["investment banking", "hedge funds", "asset management"],
+  "exclude_sectors": ["actuarial", "pensions"],
+  "locations": ["London", "Zurich"],
+  "seniority": "junior",
+  "search_queries": ["quantitative analyst", "xva quant", "quant developer", "risk quant analyst"],
+  "must_have_keywords": ["quant", "quantitative", "xva", "cva", "derivatives", "risk", "strats"],
+  "reject_keywords": ["senior", "head of", "director", "vp", "actuarial", "actuary"],
+  "long_term_goal": "Hedge fund PM in Switzerland"
+}

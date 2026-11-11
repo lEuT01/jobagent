@@ -1,0 +1,46 @@
+# Employers whose career pages are polled directly. Slugs / tenants drift: when one breaks it is
+# logged and skipped. To find a slug: open the firm's careers site and look at the URL or the
+# network tab. Greenhouse:  boards.greenhouse.io/<slug>    Lever: jobs.lever.co/<slug>
+# Workday: https://<host>/<site>  where host looks like <tenant>.wd3.myworkdayjobs.com
+#
+# The ATS mappings below are best guesses as of Nov 2026. Run `jobagent run -v --no-score`
+# once and remove or fix the ones that log failures.
+
+companies:
+  # --- hedge funds / prop / asset managers (Greenhouse / Lever) ---
+  - {name: Citadel,                ats: greenhouse, slug: citadel}
+  - {name: Citadel Securities,     ats: greenhouse, slug: citadelsecurities}
+  - {name: Point72,                ats: greenhouse, slug: point72}
+  - {name: Two Sigma,              ats: greenhouse, slug: twosigma}
+  - {name: Qube Research & Technologies, ats: greenhouse, slug: quberesearchandtechnologies}
+  - {name: Squarepoint Capital,    ats: greenhouse, slug: squarepointcapital}
+  - {name: Man Group,              ats: greenhouse, slug: mangroup}
+  - {name: G-Research,             ats: greenhouse, slug: gresearch}
+  - {name: Marshall Wace,          ats: greenhouse, slug: marshallwace}
+  - {name: Balyasny,               ats: greenhouse, slug: balyasny}
+  - {name: Millennium,             ats: greenhouse, slug: millennium}
+  - {name: ExodusPoint,            ats: greenhouse, slug: exoduspoint}
+  - {name: Jump Trading,           ats: greenhouse, slug: jumptrading}
+  - {name: Optiver,                ats: greenhouse, slug: optiver}
+  - {name: IMC,                    ats: greenhouse, slug: imc}
+  - {name: Jane Street,            ats: lever,      slug: janestreet}
+  - {name: Hudson River Trading,   ats: greenhouse, slug: wehrtyou}
+  - {name: Tower Research,         ats: greenhouse, slug: towerresearchcapital}
+  - {name: Brevan Howard,          ats: greenhouse, slug: brevanhoward}
+  - {name: Capula,                 ats: greenhouse, slug: capula}
+  - {name: LMR Partners,           ats: greenhouse, slug: lmrpartners}
+  - {name: Pictet,                 ats: workday, host: pictet.wd3.myworkdayjobs.com, tenant: pictet, site: Pictet_Careers}
+
+  # --- banks (Workday) ---
+  - {name: UBS,             ats: workday, host: ubs.wd3.myworkdayjobs.com,       tenant: ubs,       site: UBSCareers}
+  - {name: Barclays,        ats: workday, host: barclays.wd3.myworkdayjobs.com,  tenant: barclays,  site: Barclays_Careers}
+  - {name: HSBC,            ats: workday, host: hsbc.wd3.myworkdayjobs.com,      tenant: hsbc,      site: HSBC_External}
+  - {name: Standard Chartered, ats: workday, host: scb.wd3.myworkdayjobs.com,   tenant: scb,       site: SCB_Careers}
+  - {name: NatWest,         ats: workday, host: rbs.wd3.myworkdayjobs.com,       tenant: rbs,       site: NatWestGroup}
+  - {name: Lloyds,          ats: workday, host: lbg.wd3.myworkdayjobs.com,       tenant: lbg,       site: LBG_Careers}
+  - {name: Nomura,          ats: workday, host: nomura.wd3.myworkdayjobs.com,    tenant: nomura,    site: Nomura_Careers}
+  - {name: BNP Paribas,     ats: workday, host: bnpparibas.wd3.myworkdayjobs.com, tenant: bnpparibas, site: BNPP_Careers}
+  - {name: Societe Generale, ats: workday, host: societegenerale.wd3.myworkdayjobs.com, tenant: societegenerale, site: SG_External}
+  - {name: Julius Baer,     ats: workday, host: juliusbaer.wd3.myworkdayjobs.com, tenant: juliusbaer, site: Julius_Baer_Careers}
+  # JPMorgan, Goldman, Morgan Stanley, Citi, Deutsche, BofA use in-house portals with no stable
+  # public JSON: rely on Adzuna / Reed / eFC for those.

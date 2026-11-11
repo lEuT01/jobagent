@@ -1,0 +1,41 @@
+# Your inputs. The CV is parsed; everything under `aspirations` is passed to the model verbatim,
+# so write it the way you'd explain it to a friend. Re-run `jobagent profile` after editing.
+
+cv: Elliot_Martindale_CV.pdf
+
+# Optional extra material: LinkedIn profile PDF export, project write-ups, etc.
+extra_documents:
+  - CVAproject.pdf
+
+aspirations:
+  current_role: Actuarial Analyst at Pension Insurance Corporation, London, 13 months in (started Oct 2025)
+  moving_towards: >
+    Out of insurance and out of actuarial. I find Actuarial Reporting boring. I like coding and
+    mathematics, which draws me to quant work, but that is a hunch rather than a fixed decision,
+    so adjacent roles (risk, strats, trading analytics, quant dev) are in scope if they are a
+    realistic step toward it.
+  target_employers: big banks, hedge funds, asset managers / wealth managers, prop trading firms
+  locations:
+    - London
+    - Zurich
+    - Geneva
+  long_term: >
+    Hedge fund manager / PM eventually, based in Switzerland, travelling to other European offices.
+  constraints:
+    - Realistic seniority is analyst / associate / junior; 1-2 years experience, MSci not PhD
+    - Open to graduate and rotational schemes at the right firms
+    - No pure actuarial, pensions, or insurance-reporting roles
+    - Will consider market-risk / ALM / investment roles at insurers only if clearly quant-flavoured and a stepping stone
+  salary_floor_gbp: 45000     # soft; the scorer sees it, it is not a hard filter
+  notes: >
+    The CVA / American Monte Carlo project and the PCA yield-curve model are the strongest evidence
+    for quant roles; PV01/IE01 and SCR stress work at PIC is the strongest evidence for market risk.
+
+sources:
+  adzuna: true
+  reed: true
+  careers: true
+  efinancialcareers: false    # HTML scraping, fragile; turn on if you want it
+
+# Career-page listings are filtered to these location substrings (case-insensitive).
+careers_location_terms: [london, zurich, zürich, geneva, genève, switzerland, united kingdom, "uk"]

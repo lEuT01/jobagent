@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jobagent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: fixed left rail of views, single content column, dense data table. Terminal-adjacent, not decorative. */
+:root {
+  --bg: #f6f7f4; --panel: #ffffff; --fg: #1b1f1c; --muted: #64706a; --line: #d9ded9;
+  --accent: #0f6e56; --accent-fg: #ffffff; --soft: #e6f1ec;
+  --good: #1f7a4d; --warn: #b26a00; --bad: #a3322d; --stretch: #5a4fbf;
+  --font: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121513; --panel: #1a1e1b; --fg: #e8ebe7; --muted: #9aa49e; --line: #2c322e;
+  --accent: #3fbf96; --accent-fg: #0b1511; --soft: #1b2a24;
+  --good: #4fc98a; --warn: #e3a338; --bad: #e46b65; --stretch: #a79cf0; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121513; --panel: #1a1e1b; --fg: #e8ebe7; --muted: #9aa49e; --line: #2c322e;
+  --accent: #3fbf96; --accent-fg: #0b1511; --soft: #1b2a24;
+  --good: #4fc98a; --warn: #e3a338; --bad: #e46b65; --stretch: #a79cf0; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font); display: flex; min-height: 100%; }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 6px 12px; }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type=text], input[type=password], input[type=number], textarea, select { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; width: 100%; }
+textarea { min-height: 120px; resize: vertical; font-family: var(--mono); font-size: 12.5px; }
+label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; letter-spacing: .02em; text-transform: uppercase; }
+h1, h2, h3 { margin: 0; text-wrap: balance; font-weight: 600; }
+h2 { font-size: 20px; } h3 { font-size: 14px; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+[hidden] { display: none !important; }
+
+nav { width: 190px; flex: none; border-right: 1px solid var(--line); background: var(--panel); padding: 18px 12px; display: flex; flex-direction: column; gap: 4px; }
+nav .brand { font-family: var(--mono); font-weight: 500; font-size: 15px; padding: 4px 8px 14px; }
+nav a { display: block; padding: 7px 10px; border-radius: 6px; text-decoration: none; color: var(--fg); }
+nav a.active { background: var(--soft); color: var(--accent); font-weight: 600; }
+nav .foot { margin-top: auto; font-size: 12px; color: var(--muted); padding: 8px; }
+main { flex: 1; min-width: 0; padding: 24px max(16px, 3vw) 48px; max-width: 1200px; }
+section.view { display: flex; flex-direction: column; gap: 18px; }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.stat { display: flex; flex-direction: column; } .stat b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.toast { position: fixed; right: 16px; bottom: 16px; background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: 6px; max-width: 420px; z-index: 20; }
+
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 500; }
+tr.job { cursor: pointer; } tr.job:hover td { background: var(--soft); }
+tr.detail td { background: var(--panel); padding: 14px 16px 18px; }
+.fit { font-family: var(--mono); font-weight: 500; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; letter-spacing: .02em; border: 1px solid currentColor; }
+.pill.apply { color: var(--good); } .pill.consider { color: var(--warn); } .pill.stretch { color: var(--stretch); } .pill.skip { color: var(--muted); }
+.pill.status { color: var(--accent); background: var(--soft); border-color: transparent; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--accent); }
+.detail ul { margin: 4px 0 10px 18px; padding: 0; } .detail h4 { margin: 8px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.log { font-family: var(--mono); font-size: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; } .chip { font-size: 12px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+.warnbox { border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--panel); }
+.ok { color: var(--good); } .bad { color: var(--bad); }
+.badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--bad); color: #fff; font-size: 11px; font-weight: 600; text-align: center; margin-left: 6px; line-height: 18px; }
+.pill.interview, .pill.offer { color: var(--good); } .pill.assessment, .pill.request_info { color: var(--warn); } .pill.rejection { color: var(--bad); } .pill.acknowledgement, .pill.other, .pill.recruiter_outreach { color: var(--muted); }
+tr.unseen td { font-weight: 500; } tr.unseen td:first-child { box-shadow: inset 3px 0 var(--accent); }
+.reply-mini { font-size: 12.5px; padding: 6px 0; border-top: 1px dashed var(--line); }
+.table-wrap { overflow-x: auto; }
+@media (max-width: 720px) {
+  body { flex-direction: column; }
+  nav { width: auto; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 12px; }
+  nav .brand { padding: 4px 8px; width: 100%; } nav .foot { display: none; }
+  main { padding-top: 16px; }
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="brand">jobagent</div>
+  <a href="#shortlist" data-view="shortlist">Shortlist</a>
+  <a href="#replies" data-view="replies">Replies <span class="badge" id="repliesBadge" hidden></span></a>
+  <a href="#run" data-view="run">Run a search</a>
+  <a href="#score" data-view="score">Score a listing</a>
+  <a href="#profile" data-view="profile">Profile</a>
+  <a href="#settings" data-view="settings">Settings</a>
+  <div class="foot" id="foot"></div>
+</nav>
+<main>
+
+<!-- ============ SHORTLIST ============ -->
+<section class="view" id="view-shortlist">
+  <div class="head">
+    <h2>Shortlist</h2>
+    <div class="row">
+      <label for="minfit" style="margin:0">Min fit</label>
+      <input id="minfit" type="number" min="0" max="100" value="40" style="width:80px">
+      <select id="verdictFilter" style="width:auto">
+        <option value="">All verdicts</option><option value="apply">Apply</option><option value="consider">Consider</option><option value="stretch">Stretch</option><option value="skip">Skip</option>
+      </select>
+      <label style="margin:0;text-transform:none;display:flex;gap:6px;align-items:center"><input type="checkbox" id="showDone" style="width:auto"> show applied / ignored</label>
+      <button id="reloadJobs">Refresh</button>
+    </div>
+  </div>
+  <div class="stats" id="counts"></div>
+  <div class="table-wrap">
+  <table id="jobsTable">
+    <thead><tr><th>Fit</th><th>Verdict</th><th>Role</th><th>Company</th><th>Location</th><th>Posted</th><th>Source</th></tr></thead>
+    <tbody id="jobsBody"><tr><td colspan="7" class="muted">Nothing scored yet. Build your profile, then run a search.</td></tr></tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============ REPLIES ============ -->
+<section class="view" id="view-replies" hidden>
+  <div class="head"><h2>Replies</h2>
+    <div class="row"><span class="muted" id="mailState"></span><button id="syncNow">Check mailbox now</button><button id="markAllSeen">Mark all read</button></div>
+  </div>
+  <div id="mailSetupHint" class="warnbox" hidden>Mailbox not connected yet. Add it under <a href="#settings">Settings</a>, then mark jobs as <b>Applied</b> in the shortlist so replies can be matched to them.</div>
+  <div class="stats" id="replyCounts"></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Type</th><th>From</th><th>About</th><th>Summary</th></tr></thead>
+    <tbody id="repliesBody"><tr><td colspan="5" class="muted">No replies found yet.</td></tr></tbody>
+  </table></div>
+</section>
+
+<!-- ============ RUN ============ -->
+<section class="view" id="view-run" hidden>
+  <div class="head"><h2>Run a search</h2>
+    <div class="row">
+      <label style="margin:0;text-transform:none;display:flex;gap:6px;align-items:center"><input type="checkbox" id="runScore" checked style="width:auto"> score with Claude</label>
+      <label for="runLimit" style="margin:0">Cap</label><input id="runLimit" type="number" value="0" min="0" style="width:80px" title="max listings to score, 0 = all">
+      <button class="primary" id="runBtn">Run now</button>
+    </div>
+  </div>
+  <p class="muted" style="margin:0;max-width:70ch">Fetches from every enabled source, drops obvious misses for free (seniority, excluded sectors, no quant keyword), then scores only listings it hasn't seen before. A typical run costs a few pence.</p>
+  <div class="bar" id="runBar" hidden><i style="width:0"></i></div>
+  <div class="stats" id="runStats"></div>
+  <div class="log" id="runLog">No run yet.</div>
+  <details id="rejects" hidden><summary>Pre-screen rejects (tune reject / must-have keywords in Profile if these look wrong)</summary>
+    <div class="table-wrap"><table><thead><tr><th>Title</th><th>Company</th><th>Reason</th></tr></thead><tbody id="rejectsBody"></tbody></table></div>
+  </details>
+</section>
+
+<!-- ============ SCORE ONE ============ -->
+<section class="view" id="view-score" hidden>
+  <div class="head"><h2>Score a listing</h2></div>
+  <p class="muted" style="margin:0;max-width:70ch">For anything the sources miss: LinkedIn, a recruiter email, a firm's own portal. Paste the posting and get the same fit score and gap analysis. It's saved to the shortlist.</p>
+  <div class="grid2">
+    <div><label for="sTitle">Title</label><input id="sTitle" type="text" placeholder="Quantitative Analyst, XVA"></div>
+    <div><label for="sCompany">Company</label><input id="sCompany" type="text"></div>
+    <div><label for="sLocation">Location</label><input id="sLocation" type="text" placeholder="London"></div>
+    <div><label for="sUrl">URL (optional)</label><input id="sUrl" type="text"></div>
+  </div>
+  <div><label for="sDesc">Job description</label><textarea id="sDesc" style="min-height:220px;font-family:var(--font);font-size:13.5px"></textarea></div>
+  <div class="row"><button class="primary" id="scoreBtn">Score</button><span class="muted" id="scoreMsg"></span></div>
+  <div id="scoreOut"></div>
+</section>
+
+<!-- ============ PROFILE ============ -->
+<section class="view" id="view-profile">
+  <div class="head"><h2>Profile</h2><span class="muted" id="profileState"></span></div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>1. Your CV</h3>
+      <p class="muted">Upload a PDF / docx, or paste the text.</p>
+      <input type="file" id="cvFile" accept=".pdf,.docx,.txt,.md" style="margin-bottom:8px">
+      <textarea id="cvText" placeholder="...or paste CV text here" style="min-height:160px"></textarea>
+    </div>
+    <div class="panel">
+      <h3>2. Aspirations and constraints</h3>
+      <p class="muted">In your own words. What you want, what you'd avoid, where, how senior, long-term aim.</p>
+      <textarea id="aspirations" style="min-height:220px"></textarea>
+    </div>
+  </div>
+  <div class="row"><button class="primary" id="buildBtn">Build search profile with Claude</button><span class="muted" id="buildMsg"></span></div>
+
+  <div id="profileEdit" hidden>
+    <div class="head"><h3>3. Search profile (edit freely, this drives everything)</h3><button id="saveProfile">Save changes</button></div>
+    <div class="panel" style="margin-top:10px"><div id="pSummary"></div>
+      <div class="row" style="margin-top:8px"><span class="muted">Seniority:</span><b id="pSeniority"></b><span class="muted">Experience:</span><b id="pYears"></b></div>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div><label for="pQueries">Search queries (one per line)</label><textarea id="pQueries"></textarea></div>
+      <div><label for="pLocations">Locations (one per line)</label><textarea id="pLocations" style="min-height:80px"></textarea>
+           <label for="pTargetRoles" style="margin-top:10px">Target roles</label><textarea id="pTargetRoles" style="min-height:80px"></textarea></div>
+      <div><label for="pMust">Must-have keywords (listing needs at least one)</label><textarea id="pMust"></textarea></div>
+      <div><label for="pReject">Reject keywords (in title = instant reject)</label><textarea id="pReject"></textarea></div>
+      <div><label for="pExclude">Excluded sectors</label><textarea id="pExclude" style="min-height:70px"></textarea></div>
+      <div><label>Strengths</label><div class="chips" id="pStrengths"></div><label style="margin-top:10px">Gaps</label><div class="chips" id="pGaps"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section class="view" id="view-settings" hidden>
+  <div class="head"><h2>Settings</h2></div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>API keys</h3>
+      <p class="muted">Stored in <span class="mono">data/settings.json</span> on this machine only.</p>
+      <label for="kAnth">Anthropic API key (required)</label><input id="kAnth" type="password" placeholder="sk-ant-...">
+      <label for="kAdzId" style="margin-top:10px">Adzuna app id</label><input id="kAdzId" type="text">
+      <label for="kAdzKey" style="margin-top:10px">Adzuna app key</label><input id="kAdzKey" type="password">
+      <label for="kReed" style="margin-top:10px">Reed API key</label><input id="kReed" type="password">
+      <div class="row" style="margin-top:12px"><button class="primary" id="saveKeys">Save keys</button><span class="muted" id="keysState"></span></div>
+      <p class="muted" style="margin-bottom:0">Free keys: <a href="https://developer.adzuna.com" target="_blank" rel="noopener">Adzuna</a> · <a href="https://www.reed.co.uk/developers/jobseeker" target="_blank" rel="noopener">Reed</a> · <a href="https://console.anthropic.com" target="_blank" rel="noopener">Anthropic</a></p>
+    </div>
+    <div class="panel">
+      <h3>Sources</h3>
+      <div id="sourceToggles" style="display:flex;flex-direction:column;gap:8px;margin:10px 0"></div>
+      <button id="saveSources">Save sources</button>
+      <p class="muted">eFinancialCareers is HTML scraping and may break; Adzuna and Reed are proper APIs. LinkedIn and Indeed aren't available to individuals; use <b>Score a listing</b> for those.</p>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="head"><h3>Updates</h3><div class="row"><span class="muted mono" id="versionLine"></span><button id="updateBtn">Check for updates</button></div></div>
+    <p class="muted" id="updateMsg" style="margin:8px 0 0">The app pulls the latest version from GitHub each time it starts. Use the button to update while it's running; restart to apply.</p>
+  </div>
+  <div class="panel">
+    <div class="head"><h3>Mailbox (reply tracking)</h3><span class="muted" id="mailSettingsState"></span></div>
+    <p class="muted" style="max-width:80ch">The app reads your inbox over IMAP every few minutes, looks for mail from companies you've marked <b>Applied</b> (and anything that reads like recruiter traffic), and has Claude classify it. Nothing is sent from your account unless you turn on the email notification. Gmail: turn on 2-step verification, then create an <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">app password</a> and paste it here, not your normal password.</p>
+    <div class="grid2">
+      <div><label for="mUser">Mailbox address</label><input id="mUser" type="text" placeholder="you@gmail.com"></div>
+      <div><label for="mPass">App password</label><input id="mPass" type="password"></div>
+      <div><label for="mImap">IMAP host</label><input id="mImap" type="text" value="imap.gmail.com"></div>
+      <div><label for="mSmtp">SMTP host (for notifications)</label><input id="mSmtp" type="text" value="smtp.gmail.com"></div>
+      <div><label for="mFolder">Folder</label><input id="mFolder" type="text" value="INBOX"></div>
+      <div><label for="mPoll">Check every (minutes)</label><input id="mPoll" type="number" value="10" min="2"></div>
+      <div><label for="mLookback">First sync looks back (days)</label><input id="mLookback" type="number" value="30" min="1"></div>
+      <div><label for="mNotifyTo">Email notifications to</label><input id="mNotifyTo" type="text" placeholder="same address is fine">
+        <label style="text-transform:none;display:flex;gap:6px;align-items:center;margin-top:8px;font-size:13px;color:var(--fg)"><input type="checkbox" id="mNotifyEmail" style="width:auto"> email me when new replies arrive</label></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="primary" id="saveMail">Save mailbox</button><button id="testMail">Test connection</button><button id="firstSync">Sync last 30 days now</button><span class="muted" id="mailMsg"></span></div>
+  </div>
+  <div class="panel">
+    <div class="head"><h3>Career pages polled directly</h3><div class="row"><button id="probeBtn">Check which work</button><button id="saveCompanies">Save list</button></div></div>
+    <p class="muted">One per line: <span class="mono">Name | greenhouse | slug</span>, <span class="mono">Name | lever | slug</span>, or <span class="mono">Name | workday | host | tenant | site</span>. Slugs drift; delete the ones that fail the check.</p>
+    <textarea id="companies" style="min-height:260px"></textarea>
+    <div id="probeOut" class="mono" style="margin-top:10px"></div>
+  </div>
+</section>
+
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const api = async (path, opts = {}) => {
+  const r = await fetch(path, { headers: opts.body && !(opts.body instanceof FormData) ? { "Content-Type": "application/json" } : {}, ...opts });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.detail || r.statusText);
+  return j;
+};
+let toastT; const toast = (m, ms = 3500) => { const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, ms); };
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const lines = (s) => s.split("\n").map(x => x.trim()).filter(Boolean);
+
+// ---- routing ----
+const views = ["shortlist", "replies", "run", "score", "profile", "settings"];
+function route() {
+  let v = location.hash.replace("#", "") || "shortlist";
+  if (!views.includes(v)) v = "shortlist";
+  views.forEach(x => { $("#view-" + x).hidden = x !== v; });
+  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("active", a.dataset.view === v));
+  if (v === "shortlist") loadJobs();
+  if (v === "run") pollRun(true);
+  if (v === "replies") loadReplies();
+}
+window.addEventListener("hashchange", route);
+
+// ---- settings ----
+let settingsCache = null;
+async function loadSettings() {
+  settingsCache = await api("/api/settings");
+  const s = settingsCache.settings;
+  $("#keysState").textContent = s.anthropic_api_key ? `Anthropic ${s.anthropic_api_key} · Adzuna ${s.adzuna_app_id ? "set" : "none"} · Reed ${s.reed_api_key ? "set" : "none"}` : "No Anthropic key yet";
+  $("#foot").textContent = `profile ${settingsCache.has_profile ? "ready" : "not built"} · key ${s.anthropic_api_key ? "set" : "missing"}`;
+  const defs = { adzuna: "Adzuna (API)", reed: "Reed (API)", careers: "Career pages (Greenhouse / Lever / Workday)", efinancialcareers: "eFinancialCareers (scrape)" };
+  const cur = { adzuna: true, reed: true, careers: true, efinancialcareers: false, ...settingsCache.sources };
+  $("#sourceToggles").innerHTML = Object.entries(defs).map(([k, l]) =>
+    `<label style="text-transform:none;display:flex;gap:8px;align-items:center;font-size:14px;color:var(--fg)"><input type="checkbox" data-src="${k}" ${cur[k] ? "checked" : ""} style="width:auto"> ${l}</label>`).join("");
+  $("#companies").value = settingsCache.companies.map(c => c.ats === "workday" ? `${c.name} | workday | ${c.host} | ${c.tenant} | ${c.site}` : `${c.name} | ${c.ats} | ${c.slug}`).join("\n");
+  $("#mUser").value = s.mail_user || ""; $("#mImap").value = s.mail_imap_host || "imap.gmail.com"; $("#mSmtp").value = s.mail_smtp_host || "smtp.gmail.com";
+  $("#mFolder").value = s.mail_folder || "INBOX"; $("#mPoll").value = s.mail_poll_minutes || 10; $("#mLookback").value = s.mail_lookback_days || 30;
+  $("#mNotifyTo").value = s.mail_notify_to || ""; $("#mNotifyEmail").checked = !!s.mail_notify_email;
+  $("#mailSettingsState").textContent = s.mail_password ? `connected as ${s.mail_user}` : "not connected";
+  if (!settingsCache.has_profile && !location.hash) location.hash = "profile";
+}
+$("#saveKeys").onclick = async () => {
+  const body = { anthropic_api_key: $("#kAnth").value.trim(), adzuna_app_id: $("#kAdzId").value.trim(), adzuna_app_key: $("#kAdzKey").value.trim(), reed_api_key: $("#kReed").value.trim() };
+  Object.keys(body).forEach(k => { if (!body[k]) delete body[k]; });
+  try { await api("/api/settings", { method: "POST", body: JSON.stringify(body) }); toast("Keys saved"); ["#kAnth","#kAdzId","#kAdzKey","#kReed"].forEach(s => $(s).value = ""); loadSettings(); }
+  catch (e) { toast(e.message); }
+};
+$("#saveSources").onclick = async () => {
+  const sources = {}; document.querySelectorAll("[data-src]").forEach(i => sources[i.dataset.src] = i.checked);
+  try { await api("/api/sources", { method: "POST", body: JSON.stringify({ sources }) }); toast("Sources saved"); } catch (e) { toast(e.message); }
+};
+function parseCompanies() {
+  return lines($("#companies").value).map(l => {
+    const p = l.split("|").map(x => x.trim());
+    if (p[1] === "workday") return { name: p[0], ats: "workday", host: p[2], tenant: p[3], site: p[4] };
+    return { name: p[0], ats: p[1], slug: p[2] };
+  }).filter(c => c.name && c.ats);
+}
+$("#saveCompanies").onclick = async () => {
+  try { const r = await api("/api/companies", { method: "POST", body: JSON.stringify({ companies: parseCompanies() }) }); toast(`${r.count} companies saved`); } catch (e) { toast(e.message); }
+};
+$("#probeBtn").onclick = async () => {
+  $("#probeOut").textContent = "Checking every endpoint, 20 to 60 seconds...";
+  try {
+    await api("/api/companies", { method: "POST", body: JSON.stringify({ companies: parseCompanies() }) });
+    const r = await api("/api/probe");
+    const ok = r.results.filter(x => x.ok).length;
+    $("#probeOut").innerHTML = `<div>${ok}/${r.results.length} working</div>` + r.results.map(x =>
+      `<div class="${x.ok ? "ok" : "bad"}">${x.ok ? "OK " : "BAD"} ${esc(x.name)} (${x.ats}) ${esc(x.code)}${x.listings != null ? ` · ${x.listings} listings` : ""}</div>`).join("");
+  } catch (e) { $("#probeOut").textContent = e.message; }
+};
+
+// ---- profile ----
+let profile = null;
+async function loadProfile() {
+  const r = await api("/api/profile");
+  $("#aspirations").value = r.aspirations || "";
+  $("#cvText").value = r.cv_text || "";
+  if (r.profile) { profile = r.profile; renderProfile(); $("#profileState").textContent = "Profile built. Edit and save, or rebuild from a new CV."; }
+  else $("#profileState").textContent = "No profile yet.";
+}
+function renderProfile() {
+  $("#profileEdit").hidden = false;
+  $("#pSummary").textContent = profile.summary;
+  $("#pSeniority").textContent = profile.seniority; $("#pYears").textContent = profile.years_experience + " yrs";
+  $("#pQueries").value = profile.search_queries.join("\n");
+  $("#pLocations").value = profile.locations.join("\n");
+  $("#pTargetRoles").value = profile.target_roles.join("\n");
+  $("#pMust").value = profile.must_have_keywords.join("\n");
+  $("#pReject").value = profile.reject_keywords.join("\n");
+  $("#pExclude").value = profile.exclude_sectors.join("\n");
+  $("#pStrengths").innerHTML = profile.strengths.map(s => `<span class="chip">${esc(s)}</span>`).join("");
+  $("#pGaps").innerHTML = profile.gaps.map(s => `<span class="chip">${esc(s)}</span>`).join("");
+}
+$("#buildBtn").onclick = async () => {
+  const fd = new FormData();
+  const f = $("#cvFile").files[0]; if (f) fd.append("cv", f);
+  fd.append("cv_text", $("#cvText").value); fd.append("aspirations", $("#aspirations").value);
+  $("#buildBtn").disabled = true; $("#buildMsg").textContent = "Asking Claude (20 to 40 seconds)...";
+  try { const r = await api("/api/profile/build", { method: "POST", body: fd }); profile = r.profile; renderProfile(); $("#buildMsg").textContent = "Built. " + r.usage; loadSettings(); if (!$("#cvText").value) loadProfile(); }
+  catch (e) { $("#buildMsg").textContent = e.message; }
+  finally { $("#buildBtn").disabled = false; }
+};
+$("#saveProfile").onclick = async () => {
+  const body = { search_queries: lines($("#pQueries").value), locations: lines($("#pLocations").value), target_roles: lines($("#pTargetRoles").value),
+    must_have_keywords: lines($("#pMust").value), reject_keywords: lines($("#pReject").value), exclude_sectors: lines($("#pExclude").value) };
+  try { await api("/api/profile", { method: "PUT", body: JSON.stringify(body) }); Object.assign(profile, body); toast("Profile saved"); } catch (e) { toast(e.message); }
+};
+
+// ---- run ----
+let pollT = null;
+$("#runBtn").onclick = async () => {
+  try { await api("/api/run", { method: "POST", body: JSON.stringify({ score: $("#runScore").checked, limit: +$("#runLimit").value || 0 }) }); pollRun(true); }
+  catch (e) { toast(e.message); }
+};
+async function pollRun(start) {
+  if (start) clearTimeout(pollT);
+  let s; try { s = await api("/api/run/status"); } catch { return; }
+  $("#runBtn").disabled = s.running;
+  $("#runLog").textContent = s.log.length ? s.log.join("\n") : "No run yet.";
+  $("#runLog").scrollTop = $("#runLog").scrollHeight;
+  const [d, n] = s.progress; $("#runBar").hidden = !(s.running && n); $("#runBar i").style.width = n ? (100 * d / n) + "%" : "0";
+  if (s.stats) {
+    const st = s.stats;
+    $("#runStats").innerHTML = [["Fetched", st.fetched], ["Passed pre-screen", st.kept], ["New", st.new], ["Scored", st.scored]]
+      .map(([l, v]) => `<div class="panel stat"><span class="muted">${l}</span><b>${v ?? 0}</b></div>`).join("")
+      + (st.per_source ? `<div class="panel"><span class="muted">Per source</span><div class="mono">${Object.entries(st.per_source).map(([k, v]) => `${k}: ${v}`).join("<br>")}</div></div>` : "")
+      + (st.errors?.length ? `<div class="warnbox">${st.errors.map(esc).join("<br>")}</div>` : "");
+    if (st.rejects?.length) { $("#rejects").hidden = false; $("#rejectsBody").innerHTML = st.rejects.map(([t, c, w]) => `<tr><td>${esc(t)}</td><td>${esc(c)}</td><td class="muted">${esc(w)}</td></tr>`).join(""); }
+  } else $("#runStats").innerHTML = "";
+  if (s.running) pollT = setTimeout(() => pollRun(false), 1500);
+  else if (s.stats && start === false) loadJobs();
+}
+
+// ---- shortlist ----
+let jobsCache = [];
+async function loadJobs() {
+  let r; try { r = await api(`/api/jobs?min_fit=${+$("#minfit").value || 0}&include_done=${$("#showDone").checked}`); } catch (e) { toast(e.message); return; }
+  jobsCache = r.jobs;
+  const c = r.counts;
+  const byV = {}; r.jobs.forEach(j => byV[j.verdict] = (byV[j.verdict] || 0) + 1);
+  $("#counts").innerHTML = [["In store", c.jobs], ["Scored", c.scored], ["Apply", byV.apply || 0], ["Consider", byV.consider || 0], ["Applied", c.applied]]
+    .map(([l, v]) => `<div class="panel stat"><span class="muted">${l}</span><b>${v}</b></div>`).join("");
+  renderJobs();
+}
+function renderJobs() {
+  const vf = $("#verdictFilter").value;
+  const rows = jobsCache.filter(j => !vf || j.verdict === vf);
+  const tb = $("#jobsBody");
+  if (!rows.length) { tb.innerHTML = `<tr><td colspan="7" class="muted">Nothing here yet. Build your profile, then run a search.</td></tr>`; return; }
+  tb.innerHTML = rows.map((j, i) => `
+    <tr class="job" data-i="${i}">
+      <td class="fit">${j.fit}</td>
+      <td><span class="pill ${j.verdict}">${j.verdict}</span>${j.payload.hard_blocker ? ' <span title="hard requirement not met">⚠</span>' : ""}${j.status ? ` <span class="pill status">${j.status}</span>` : ""}</td>
+      <td><b>${esc(j.title)}</b></td><td>${esc(j.company)}</td><td>${esc(j.location)}</td><td class="muted">${esc(j.posted || "")}</td><td class="muted">${esc(j.source)}</td>
+    </tr>`).join("");
+  tb.querySelectorAll("tr.job").forEach(tr => tr.onclick = () => toggleDetail(tr, rows[+tr.dataset.i]));
+}
+function toggleDetail(tr, j) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains("detail")) { next.remove(); return; }
+  document.querySelectorAll("tr.detail").forEach(x => x.remove());
+  const p = j.payload;
+  const d = document.createElement("tr"); d.className = "detail";
+  d.innerHTML = `<td colspan="7"><div class="detail">
+    <div class="row" style="justify-content:space-between"><div><b>${esc(p.role_type || "")}</b> · seniority ${esc(p.seniority_match || "")} · ${esc(j.salary || "salary n/a")}</div>
+      <div class="row">${j.url ? `<a href="${esc(j.url)}" target="_blank" rel="noopener">Open listing ↗</a>` : ""}
+        <button data-s="applied">Applied</button><button data-s="saved">Save</button><button data-s="ignored">Ignore</button>${j.status ? '<button data-s="none">Clear</button>' : ""}</div></div>
+    <h4>Why it fits</h4><ul>${(p.fits || []).map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+    <h4>Gaps</h4><ul>${(p.gaps || []).map(x => `<li>${esc(x)}</li>`).join("") || "<li>none flagged</li>"}</ul>
+    <h4>Lead with</h4><div>${esc(p.emphasise || "")}</div>
+    ${(j.replies && j.replies.length) ? `<h4>Replies</h4>` + j.replies.map(r => `<div class="reply-mini"><span class="pill ${esc(r.category)}">${esc(r.category.replace("_"," "))}</span> ${esc((r.date||"").slice(0,10))} · <b>${esc(r.from_name || r.from_addr)}</b>: ${esc(r.summary)}</div>`).join("") : (j.status === "applied" ? `<div class="muted" style="margin-top:8px">No reply yet.</div>` : "")}
+    <details style="margin-top:10px"><summary class="muted">Description</summary><div style="white-space:pre-wrap;max-width:80ch;margin-top:6px">${esc(j.description || "")}</div></details>
+  </div></td>`;
+  tr.after(d);
+  d.querySelectorAll("button[data-s]").forEach(b => b.onclick = async (ev) => { ev.stopPropagation();
+    try { await api(`/api/jobs/${encodeURIComponent(j.uid)}/status`, { method: "POST", body: JSON.stringify({ status: b.dataset.s }) }); toast(`Marked ${b.dataset.s}`); loadJobs(); } catch (e) { toast(e.message); } });
+}
+$("#reloadJobs").onclick = loadJobs; $("#minfit").onchange = loadJobs; $("#showDone").onchange = loadJobs; $("#verdictFilter").onchange = renderJobs;
+
+// ---- score one ----
+$("#scoreBtn").onclick = async () => {
+  const body = { title: $("#sTitle").value.trim(), company: $("#sCompany").value.trim(), location: $("#sLocation").value.trim(), url: $("#sUrl").value.trim(), description: $("#sDesc").value.trim() };
+  if (!body.title || !body.description) { toast("Title and description are needed"); return; }
+  $("#scoreBtn").disabled = true; $("#scoreMsg").textContent = "Scoring...";
+  try {
+    const r = await api("/api/score", { method: "POST", body: JSON.stringify(body) }); const p = r.result;
+    $("#scoreMsg").textContent = r.usage;
+    $("#scoreOut").innerHTML = `<div class="panel"><div class="row"><span class="fit" style="font-size:28px">${p.fit}</span><span class="pill ${p.verdict}">${p.verdict}</span><span class="muted">${esc(p.role_type)} · seniority ${esc(p.seniority_match)}${p.hard_blocker ? " · hard blocker" : ""}</span></div>
+      <div class="detail"><h4>Why it fits</h4><ul>${p.fits.map(x => `<li>${esc(x)}</li>`).join("")}</ul><h4>Gaps</h4><ul>${p.gaps.map(x => `<li>${esc(x)}</li>`).join("") || "<li>none</li>"}</ul><h4>Lead with</h4>${esc(p.emphasise)}</div></div>`;
+  } catch (e) { $("#scoreMsg").textContent = e.message; }
+  finally { $("#scoreBtn").disabled = false; }
+};
+
+// ---- updates ----
+async function loadVersion() { try { const v = await api("/api/version"); $("#versionLine").textContent = v.git ? `${v.version} · ${v.date} · ${v.message}` : v.version; $("#foot").textContent += v.git ? ` · ${v.version}` : ""; } catch {} }
+$("#updateBtn").onclick = async () => { $("#updateMsg").textContent = "Pulling..."; try { const r = await api("/api/update", { method: "POST", body: "{}" }); $("#updateMsg").textContent = r.updated ? `Updated ${r.from} → ${r.to}. Close the app window and double-click the start script again to apply.` : "Already up to date."; loadVersion(); } catch (e) { $("#updateMsg").textContent = e.message; } };
+
+// ---- mailbox ----
+$("#saveMail").onclick = async () => {
+  const body = { mail_user: $("#mUser").value.trim(), mail_imap_host: $("#mImap").value.trim(), mail_smtp_host: $("#mSmtp").value.trim(),
+    mail_folder: $("#mFolder").value.trim() || "INBOX", mail_poll_minutes: +$("#mPoll").value || 10, mail_lookback_days: +$("#mLookback").value || 30,
+    mail_notify_to: $("#mNotifyTo").value.trim(), mail_notify_email: $("#mNotifyEmail").checked };
+  if ($("#mPass").value) body.mail_password = $("#mPass").value;
+  try { await api("/api/mail/settings", { method: "POST", body: JSON.stringify(body) }); $("#mPass").value = ""; toast("Mailbox saved"); loadSettings(); } catch (e) { toast(e.message); }
+};
+$("#testMail").onclick = async () => { $("#mailMsg").textContent = "Connecting..."; try { const r = await api("/api/mail/test", { method: "POST", body: "{}" }); $("#mailMsg").textContent = r.message; } catch (e) { $("#mailMsg").textContent = e.message; } };
+$("#firstSync").onclick = async () => { $("#mailMsg").textContent = "Syncing, this can take a minute..."; try { const r = await api("/api/mail/sync", { method: "POST", body: JSON.stringify({ days: +$("#mLookback").value || 30 }) }); $("#mailMsg").textContent = `Checked ${r.checked} emails, ${r.candidates} looked relevant, ${r.replies_found} replies saved.`; refreshBadge(); } catch (e) { $("#mailMsg").textContent = e.message; } };
+$("#syncNow").onclick = async () => { $("#mailState").textContent = "Checking..."; try { const r = await api("/api/mail/sync", { method: "POST", body: "{}" }); $("#mailState").textContent = `Checked ${r.checked} new emails, ${r.replies_found} replies at ${r.at}`; loadReplies(); } catch (e) { $("#mailState").textContent = e.message; } };
+$("#markAllSeen").onclick = async () => { const ids = repliesCache.filter(r => !r.seen).map(r => r.msg_id); if (!ids.length) return; await api("/api/replies/seen", { method: "POST", body: JSON.stringify({ msg_ids: ids }) }); loadReplies(); };
+
+let repliesCache = [];
+async function loadReplies() {
+  let st; try { st = await api("/api/mail/status"); } catch { return; }
+  $("#mailSetupHint").hidden = st.configured;
+  if (st.configured && !$("#mailState").textContent) $("#mailState").textContent = st.last ? `last checked ${st.last}, every ${st.poll_minutes} min` : `checks every ${st.poll_minutes} min while the app is open`;
+  if (st.error) $("#mailState").textContent = "Last check failed: " + st.error;
+  const r = await api("/api/replies"); repliesCache = r.replies;
+  const c = st.counts; const byC = {}; repliesCache.forEach(x => byC[x.category] = (byC[x.category] || 0) + 1);
+  $("#replyCounts").innerHTML = [["Applied", c.applied], ["Replies", c.replies], ["Unread", c.unseen_replies], ["Interviews", byC.interview || 0], ["Rejections", byC.rejection || 0], ["Need action", c.action_needed]]
+    .map(([l, v]) => `<div class="panel stat"><span class="muted">${l}</span><b>${v}</b></div>`).join("");
+  const tb = $("#repliesBody");
+  if (!repliesCache.length) { tb.innerHTML = `<tr><td colspan="5" class="muted">No replies found yet. Mark jobs as Applied, then check the mailbox.</td></tr>`; return; }
+  tb.innerHTML = repliesCache.map(x => `<tr class="job ${x.seen ? "" : "unseen"}" data-id="${esc(x.msg_id)}">
+    <td class="muted" style="white-space:nowrap">${esc((x.date || "").slice(0, 10))}</td>
+    <td><span class="pill ${esc(x.category)}">${esc(x.category.replace("_", " "))}</span>${x.action_needed ? " ⚑" : ""}</td>
+    <td><b>${esc(x.from_name || x.from_addr)}</b><div class="muted">${esc(x.subject)}</div></td>
+    <td>${x.job_title ? `${esc(x.job_title)}<div class="muted">${esc(x.job_company)}</div>` : `<button data-link="${esc(x.msg_id)}">Link to job</button>`}</td>
+    <td>${esc(x.summary)}${x.deadline ? `<div class="bad">Deadline ${esc(x.deadline)}</div>` : ""}</td></tr>`).join("");
+  tb.querySelectorAll("tr.unseen").forEach(tr => tr.onclick = async () => { await api("/api/replies/seen", { method: "POST", body: JSON.stringify({ msg_ids: [tr.dataset.id] }) }); tr.classList.remove("unseen"); refreshBadge(); });
+  tb.querySelectorAll("button[data-link]").forEach(b => b.onclick = async (ev) => { ev.stopPropagation();
+    const a = await api("/api/jobs/applied"); if (!a.jobs.length) { toast("No applied jobs to link to"); return; }
+    const sel = document.createElement("select"); sel.innerHTML = a.jobs.map(j => `<option value="${esc(j.uid)}">${esc(j.title)} at ${esc(j.company)}</option>`).join("");
+    b.replaceWith(sel); sel.focus();
+    sel.onchange = async () => { await api("/api/replies/link", { method: "POST", body: JSON.stringify({ msg_id: b.dataset.link, job_uid: sel.value }) }); loadReplies(); }; });
+  refreshBadge();
+}
+let lastUnseen = null;
+async function refreshBadge() {
+  let st; try { st = await api("/api/mail/status"); } catch { return; }
+  const n = st.counts.unseen_replies; const b = $("#repliesBadge"); b.hidden = !n; b.textContent = n;
+  if (lastUnseen !== null && n > lastUnseen && "Notification" in window && Notification.permission === "granted")
+    new Notification("jobagent", { body: `${n - lastUnseen} new repl${n - lastUnseen === 1 ? "y" : "ies"} to applications` });
+  lastUnseen = n;
+}
+if ("Notification" in window && Notification.permission === "default") document.addEventListener("click", () => Notification.requestPermission(), { once: true });
+setInterval(refreshBadge, 60000);
+
+// ---- boot ----
+(async () => { await loadSettings(); await loadProfile(); route(); refreshBadge(); loadVersion(); })();
+</script>
+</body>
+</html>
